@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TodoList Pro - Gerenciador de Tarefas</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body data-bs-theme="light">
+    <div id="app" x-data="todoApp()">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#"><i class="bi bi-check2-circle"></i> TodoList Pro</a>
+                <div class="d-flex align-items-center">
+                    <button @click="toggleTheme()" class="btn btn-outline-light me-2">
+                        <i :class="theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill'"></i>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <div class="container-fluid mt-4">
+            <div class="row">
+                <div class="col-md-3 col-lg-2">
+                    <div class="list-group">
+                        <a href="#" @click.prevent="currentView = 'tasks'" :class="currentView === 'tasks' ? 'active' : ''" class="list-group-item list-group-item-action">
+                            <i class="bi bi-list-task"></i> Tarefas
+                        </a>
+                        <a href="#" @click.prevent="currentView = 'categories'" :class="currentView === 'categories' ? 'active' : ''" class="list-group-item list-group-item-action">
+                            <i class="bi bi-folder"></i> Categorias
+                        </a>
+                        <a href="#" @click.prevent="currentView = 'clients'" :class="currentView === 'clients' ? 'active' : ''" class="list-group-item list-group-item-action">
+                            <i class="bi bi-people"></i> Clientes
+                        </a>
+                        
+                        <!-- Menu Configurações Expansível -->
+                        <div class="list-group-item p-0">
+                            <a href="#" @click.prevent="settingsExpanded = !settingsExpanded" 
+                               class="list-group-item list-group-item-action border-0 d-flex justify-content-between align-items-center"
+                               :class="(currentView === 'profile' || currentView === 'notifications' || currentView === 'backup') ? 'active' : ''">
+                                <span><i class="bi bi-gear"></i> Configurações</span>
+                                <i class="bi" :class="settingsExpanded ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                            </a>
+                            <div x-show="settingsExpanded" x-collapse class="ps-3">
+                                <a href="#" @click.prevent="currentView = 'profile'" 
+                                   :class="currentView === 'profile' ? 'active' : ''" 
+                                   class="list-group-item list-group-item-action border-0">
+                                    <i class="bi bi-person-circle"></i> Perfil
+                                </a>
+                                <a href="#" @click.prevent="currentView = 'notifications'" 
+                                   :class="currentView === 'notifications' ? 'active' : ''" 
+                                   class="list-group-item list-group-item-action border-0">
+                                    <i class="bi bi-bell"></i> Notificações
+                                </a>
+                                <a href="#" @click.prevent="currentView = 'backup'" 
+                                   :class="currentView === 'backup' ? 'active' : ''" 
+                                   class="list-group-item list-group-item-action border-0">
+                                    <i class="bi bi-database"></i> Backup / Restore
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-9 col-lg-10">
+                    <div x-show="currentView === 'tasks'" x-transition>
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="bi bi-list-task"></i> Tarefas</h2>
+                            <div class="btn-group">
+                                <button @click="openDashboard()" class="btn btn-outline-info"><i class="bi bi-bar-chart-fill"></i> Dashboard</button>
+                                <button @click="openStatusReport()" class="btn btn-outline-primary"><i class="bi bi-file-text"></i> Status Report</button>
+                            <button @click="openTaskModal()" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Nova Tarefa</button>
+                            </div>
+                        </div>
+
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <input type="text" x-model="taskFilters.search" @input="filterTasks()" class="form-control" placeholder="Pesquisar tarefas...">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select x-model="taskFilters.status" @change="filterTasks()" class="form-select">
+                                            <option value="">Todos os Status</option>
+                                            <option value="Nova">Nova</option>
+                                            <option value="Em Andamento">Em Andamento</option>
+                                            <option value="Pausada">Pausada</option>
+                                            <option value="Cancelada">Cancelada</option>
+                                            <option value="Concluida">Concluída</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <select x-model="taskFilters.category" @change="filterTasks()" class="form-select">
+                                            <option value="">Todas as Categorias</option>
+                                            <template x-for="cat in categories" :key="cat.id">
+                                                <option :value="cat.id" x-text="cat.name"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button @click="clearFilters()" class="btn btn-outline-secondary w-100"><i class="bi bi-x-circle"></i> Limpar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <template x-for="task in filteredTasks" :key="task.id">
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card task-card h-100 shadow-sm">
+                                        <div class="card-header d-flex justify-content-between align-items-center" :style="'border-left: 4px solid ' + getCategoryColor(task.categoryId)">
+                                            <span class="badge" :class="getStatusBadgeClass(task.status)">
+                                                <span class="status-indicator" :class="getStatusIndicatorClass(task.status)"></span>
+                                                <span x-text="task.status"></span>
+                                            </span>
+                                            <span class="badge bg-secondary" x-text="'P' + task.priority"></span>
+                                        </div>
+                                        <div class="card-body">
+                                            <h5 class="card-title" x-text="task.name"></h5>
+                                            <p class="card-text text-muted small" x-text="task.description"></p>
+                                            <div class="mb-2"><small class="text-muted"><i class="bi bi-folder"></i> <span x-text="getCategoryName(task.categoryId)"></span></small></div>
+                                            <div class="mb-2" x-show="task.clients && task.clients.length > 0">
+                                                <template x-for="clientId in task.clients" :key="clientId">
+                                                    <span class="badge bg-info me-1" x-text="getClientName(clientId)"></span>
+                                                </template>
+                                            </div>
+                                            <div class="mb-2"><small class="text-muted"><i class="bi bi-clock"></i> <span x-text="formatElapsedTime(task)"></span></small></div>
+                                            <div class="mb-2"><small class="text-muted"><i class="bi bi-calendar-event"></i> Início: <span x-text="formatDateTime(task.startDateTime)"></span></small></div>
+                                            <div class="mb-2" x-show="task.deliveryDate"><small class="text-muted"><i class="bi bi-calendar-check"></i> Entrega: <span x-text="formatDate(task.deliveryDate)"></span></small></div>
+                                            
+                                            <!-- Indicador de Subtarefas -->
+                                            <div class="mb-2" x-show="task.subtasks && task.subtasks.length > 0">
+                                                <template x-if="getSubtaskProgress(task)">
+                                                    <div class="subtask-indicator" x-data="{ prog: getSubtaskProgress(task) }">
+                                                        <i class="bi bi-list-check"></i>
+                                                        <span x-text="prog.completed + '/' + prog.total"></span>
+                                                        <div class="progress-mini">
+                                                            <div class="progress-mini-bar" :style="'width: ' + prog.percentage + '%'"></div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                        <div class="card-footer bg-transparent">
+                                            <div class="btn-group btn-group-sm w-100">
+                                                <button @click="editTask(task)" class="btn btn-outline-primary"><i class="bi bi-pencil"></i></button>
+                                                <button @click="deleteTask(task.id)" class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div x-show="filteredTasks.length === 0" class="text-center py-5">
+                            <i class="bi bi-inbox display-1 text-muted"></i>
+                            <p class="text-muted mt-3">Nenhuma tarefa encontrada</p>
+                        </div>
+                    </div>
+
+                    <div x-show="currentView === 'categories'" x-transition>
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="bi bi-folder"></i> Categorias</h2>
+                            <button @click="openCategoryModal()" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Nova Categoria</button>
+                        </div>
+                        <div class="row">
+                            <template x-for="category in categories" :key="category.id">
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card shadow-sm">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <div class="category-icon me-3" :style="'background-color: ' + category.color">
+                                                    <i :class="category.icon"></i>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h5 class="mb-0" x-text="category.name"></h5>
+                                                    <small class="text-muted">Prioridade: <span x-text="category.priority"></span></small>
+                                                </div>
+                                            </div>
+                                            <div class="btn-group btn-group-sm w-100">
+                                                <button @click="editCategory(category)" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Editar</button>
+                                                <button @click="deleteCategory(category.id)" class="btn btn-outline-danger"><i class="bi bi-trash"></i> Excluir</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div x-show="currentView === 'clients'" x-transition>
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h2><i class="bi bi-people"></i> Clientes</h2>
+                            <button @click="openClientModal()" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Novo Cliente</button>
+                        </div>
+                        <div class="row">
+                            <template x-for="client in clients" :key="client.id">
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card shadow-sm">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h5 class="card-title mb-0" x-text="client.name"></h5>
+                                                <span class="badge bg-secondary" x-text="'P' + client.priority"></span>
+                                            </div>
+                                            <p class="card-text text-muted small" x-text="client.description"></p>
+                                            <div class="btn-group btn-group-sm w-100">
+                                                <button @click="editClient(client)" class="btn btn-outline-primary"><i class="bi bi-pencil"></i> Editar</button>
+                                                <button @click="deleteClient(client.id)" class="btn btn-outline-danger"><i class="bi bi-trash"></i> Excluir</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Perfil -->
+                    <div x-show="currentView === 'profile'" x-transition>
+                        <div class="mb-4">
+                            <h2><i class="bi bi-person-circle"></i> Perfil</h2>
+                        </div>
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title mb-4">Informações do Usuário</h5>
+                                <div class="mb-3">
+                                    <label class="form-label">Nome</label>
+                                    <input type="text" x-model="userProfile.name" class="form-control" placeholder="Seu nome">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" x-model="userProfile.email" class="form-control" placeholder="seu@email.com">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Empresa/Organização</label>
+                                    <input type="text" x-model="userProfile.company" class="form-control" placeholder="Nome da empresa">
+                                </div>
+                                <button @click="saveProfile()" class="btn btn-primary">
+                                    <i class="bi bi-save"></i> Salvar Perfil
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notificações -->
+                    <div x-show="currentView === 'notifications'" x-transition>
+                        <div class="mb-4">
+                            <h2><i class="bi bi-bell"></i> Notificações</h2>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Configurações de Notificações</h5>
+                            </div>
+                            <div class="card-body">
+                                <!-- Ativar/Desativar -->
+                                <div class="mb-4">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="notificationEnabled" 
+                                               x-model="notificationSettings.enabled"
+                                               @change="toggleNotifications()">
+                                        <label class="form-check-label" for="notificationEnabled">
+                                            <strong>Ativar Notificações</strong>
+                                            <br>
+                                            <small class="text-muted">Receba lembretes sobre tarefas com entrega prevista para hoje</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Intervalo -->
+                                <div class="mb-4">
+                                    <label class="form-label"><strong>Intervalo de Notificação</strong></label>
+                                    <div class="input-group">
+                                        <input type="number" x-model="notificationSettings.intervalMinutes" 
+                                               class="form-control" min="1" max="1440"
+                                               @change="saveNotificationSettings()">
+                                        <span class="input-group-text">minutos</span>
+                                    </div>
+                                    <small class="text-muted">Receber notificação a cada X minutos (entre 1 e 1440)</small>
+                                </div>
+                                
+                                <!-- Filtro por Status -->
+                                <div class="mb-4">
+                                    <label class="form-label"><strong>Filtrar por Status</strong></label>
+                                    <div class="notification-filter-options">
+                                        <div class="form-check" x-data="{ statuses: ['Nova', 'Em Andamento', 'Pausada'] }">
+                                            <template x-for="status in statuses" :key="status">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           :id="'status-' + status"
+                                                           :value="status"
+                                                           :checked="notificationSettings.statusFilter.includes(status)"
+                                                           @change="toggleStatusFilter(status)">
+                                                    <label class="form-check-label" :for="'status-' + status">
+                                                        <span class="badge" :class="getStatusBadgeClass(status)">
+                                                            <span class="status-indicator" :class="getStatusIndicatorClass(status)"></span>
+                                                            <span x-text="status"></span>
+                                                        </span>
+                                                    </label>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Filtro por Categorias -->
+                                <div class="mb-4">
+                                    <label class="form-label"><strong>Filtrar por Categorias</strong></label>
+                                    <div class="notification-filter-options">
+                                        <template x-for="category in categories" :key="category.id">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" 
+                                                       :id="'cat-' + category.id"
+                                                       :value="category.id"
+                                                       :checked="notificationSettings.categoryFilter.includes(category.id)"
+                                                       @change="toggleCategoryFilter(category.id)">
+                                                <label class="form-check-label" :for="'cat-' + category.id">
+                                                    <span class="badge" :style="'background-color: ' + category.color">
+                                                        <i :class="category.icon"></i>
+                                                        <span x-text="category.name"></span>
+                                                    </span>
+                                                </label>
+                                            </div>
+                                        </template>
+                                        <div x-show="categories.length === 0" class="text-muted">
+                                            <small>Nenhuma categoria cadastrada</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Botões de ação -->
+                                <div class="d-flex gap-2">
+                                    <button @click="testNotification()" class="btn btn-info">
+                                        <i class="bi bi-bell"></i> Testar Notificação
+                                    </button>
+                                    <button @click="saveNotificationSettings()" class="btn btn-primary">
+                                        <i class="bi bi-save"></i> Salvar Configurações
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Informações -->
+                        <div class="alert alert-info">
+                            <h6><i class="bi bi-info-circle"></i> Como funciona?</h6>
+                            <ul class="mb-0">
+                                <li>As notificações aparecem no canto inferior direito da tela</li>
+                                <li>Você será notificado sobre tarefas com entrega prevista para <strong>hoje</strong></li>
+                                <li>Use os filtros para personalizar quais tarefas deseja ser notificado</li>
+                                <li>As notificações são exibidas mesmo com a aba minimizada</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Backup / Restore -->
+                    <div x-show="currentView === 'backup'" x-transition>
+                        <div class="mb-4">
+                            <h2><i class="bi bi-database"></i> Backup / Restore</h2>
+                        </div>
+                        
+                        <!-- Backup -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-download"></i> Fazer Backup</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Exporte todos os seus dados (tarefas, categorias, clientes) para um arquivo JSON.</p>
+                                <button @click="exportBackup()" class="btn btn-success">
+                                    <i class="bi bi-download"></i> Baixar Backup (JSON)
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Restore -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-upload"></i> Restaurar Backup</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Importe um arquivo de backup anterior. <strong class="text-danger">Atenção: isso substituirá todos os dados atuais!</strong></p>
+                                <input type="file" id="restoreFile" accept=".json" class="form-control mb-3">
+                                <button @click="importBackup()" class="btn btn-warning">
+                                    <i class="bi bi-upload"></i> Restaurar Backup
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Limpar Dados -->
+                        <div class="card border-danger">
+                            <div class="card-header bg-danger text-white">
+                                <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Zona de Perigo</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">Remova permanentemente todos os dados do sistema.</p>
+                                <button @click="clearAllData()" class="btn btn-danger">
+                                    <i class="bi bi-trash"></i> Limpar Todos os Dados
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="taskModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" x-text="taskForm.id ? 'Editar Tarefa' : 'Nova Tarefa'"></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="saveTask()">
+                            <div class="row g-3">
+                                <div class="col-md-8"><label class="form-label">Nome *</label><input type="text" x-model="taskForm.name" class="form-control" required></div>
+                                <div class="col-md-4"><label class="form-label">Prioridade *</label><input type="number" x-model="taskForm.priority" class="form-control" min="1" max="10" required></div>
+                                <div class="col-12"><label class="form-label">Descrição</label><textarea x-model="taskForm.description" class="form-control" rows="3"></textarea></div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Status *</label>
+                                    <select x-model="taskForm.status" class="form-select" required>
+                                        <option value="Nova"><span class="status-indicator status-nova"></span> Nova</option>
+                                        <option value="Em Andamento"><span class="status-indicator status-em-andamento"></span> Em Andamento</option>
+                                        <option value="Pausada"><span class="status-indicator status-pausada"></span> Pausada</option>
+                                        <option value="Cancelada"><span class="status-indicator status-cancelada"></span> Cancelada</option>
+                                        <option value="Concluida"><span class="status-indicator status-concluida"></span> Concluída</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6"><label class="form-label">Categoria *</label><select x-model="taskForm.categoryId" class="form-select" required><option value="">Selecione...</option><template x-for="cat in categories" :key="cat.id"><option :value="cat.id" x-text="cat.name"></option></template></select></div>
+                                <div class="col-md-4"><label class="form-label">Data e Hora Início</label><input type="datetime-local" x-model="taskForm.startDateTime" class="form-control"></div>
+                                <div class="col-md-4"><label class="form-label">Data e Hora Término</label><input type="datetime-local" x-model="taskForm.endDateTime" class="form-control"></div>
+                                <div class="col-md-4"><label class="form-label">Previsão de Entrega</label><input type="date" x-model="taskForm.deliveryDate" class="form-control"></div>
+                                <div class="col-12">
+                                    <label class="form-label">Clientes</label>
+                                    <div class="client-selection">
+                                        <template x-for="client in clients" :key="client.id">
+                                            <div class="client-checkbox-item">
+                                                <input 
+                                                    type="checkbox" 
+                                                    :id="'client-' + client.id"
+                                                    :value="client.id"
+                                                    :checked="isClientSelected(client.id)"
+                                                    @change="toggleClientSelection(client.id)"
+                                                />
+                                                <label :for="'client-' + client.id" class="mb-0" style="cursor: pointer;" x-text="client.name"></label>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div class="selected-clients-tags" x-show="taskForm.clients && taskForm.clients.length > 0">
+                                        <template x-for="clientId in taskForm.clients" :key="clientId">
+                                            <span class="client-tag">
+                                                <span x-text="getClientName(clientId)"></span>
+                                                <span class="remove-client" @click="removeClient(clientId)">×</span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+                                
+                                <!-- Subtarefas -->
+                                <div class="col-12">
+                                    <hr class="my-4">
+                                    <h6 class="mb-3"><i class="bi bi-list-check"></i> Subtarefas</h6>
+                                    
+                                    <!-- Adicionar nova subtarefa -->
+                                    <div class="card mb-3 bg-light">
+                                        <div class="card-body">
+                                            <div class="row g-2">
+                                                <div class="col-md-5">
+                                                    <input type="text" x-model="subtaskForm.name" class="form-control form-control-sm" placeholder="Nome da subtarefa">
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <input type="text" x-model="subtaskForm.description" class="form-control form-control-sm" placeholder="Descrição (opcional)">
+                                                </div>
+                                                <div class="col-md-2">
+                                                    <button type="button" @click="addSubtask()" class="btn btn-sm btn-success w-100">
+                                                        <i class="bi bi-plus-circle"></i> Adicionar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Lista de subtarefas -->
+                                    <div x-show="taskForm.subtasks && taskForm.subtasks.length > 0" class="subtasks-list">
+                                        <div class="alert alert-info py-2">
+                                            <small><i class="bi bi-info-circle"></i> Arraste as subtarefas para reordenar</small>
+                                        </div>
+                                        
+                                        <template x-for="(subtask, index) in taskForm.subtasks" :key="subtask.id">
+                                            <div class="subtask-item"
+                                                 draggable="true"
+                                                 @dragstart="dragStartSubtask(index)"
+                                                 @dragover="dragOverSubtask($event)"
+                                                 @drop="dropSubtask(index)">
+                                                <div class="subtask-drag-handle">
+                                                    <i class="bi bi-grip-vertical"></i>
+                                                </div>
+                                                <div class="subtask-checkbox">
+                                                    <input type="checkbox" 
+                                                           :checked="subtask.status === 'Concluida'"
+                                                           @change="toggleSubtaskStatus(subtask)">
+                                                </div>
+                                                <div class="subtask-content">
+                                                    <div class="subtask-name" :class="subtask.status === 'Concluida' ? 'text-decoration-line-through text-muted' : ''" x-text="subtask.name"></div>
+                                                    <div class="subtask-description" x-show="subtask.description" x-text="subtask.description"></div>
+                                                </div>
+                                                <div class="subtask-actions">
+                                                    <button type="button" @click="removeSubtask(index)" class="btn btn-sm btn-outline-danger">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        
+                                        <!-- Progresso das subtarefas -->
+                                        <div class="subtask-progress-summary mt-3" x-data="{ 
+                                            get completedCount() { return taskForm.subtasks.filter(st => st.status === 'Concluida').length; },
+                                            get totalCount() { return taskForm.subtasks.length; },
+                                            get percentage() { 
+                                                if (this.totalCount === 0) return 0;
+                                                return Math.round((this.completedCount / this.totalCount) * 100); 
+                                            }
+                                        }">
+                                            <div class="d-flex justify-content-between mb-1">
+                                                <small class="text-muted">Progresso</small>
+                                                <small class="text-muted">
+                                                    <span x-text="completedCount"></span> / 
+                                                    <span x-text="totalCount"></span> concluídas
+                                                </small>
+                                            </div>
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar bg-success" 
+                                                     role="progressbar"
+                                                     :style="'width: ' + percentage + '%'">
+                                                    <span x-text="percentage + '%'"></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div x-show="!taskForm.subtasks || taskForm.subtasks.length === 0" class="text-center py-3 text-muted">
+                                        <small><i class="bi bi-inbox"></i> Nenhuma subtarefa adicionada</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" @click="saveTask()" class="btn btn-primary">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="categoryModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" x-text="categoryForm.id ? 'Editar Categoria' : 'Nova Categoria'"></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="saveCategory()">
+                            <div class="mb-3"><label class="form-label">Nome *</label><input type="text" x-model="categoryForm.name" class="form-control" required></div>
+                            <div class="mb-3"><label class="form-label">Cor *</label><input type="color" x-model="categoryForm.color" class="form-control form-control-color w-100" required></div>
+                            <div class="mb-3"><label class="form-label">Ícone (Bootstrap Icons) *</label><input type="text" x-model="categoryForm.icon" class="form-control" placeholder="Ex: bi bi-code-slash" required><small class="text-muted">Ver: <a href="https://icons.getbootstrap.com/" target="_blank">Bootstrap Icons</a></small></div>
+                            <div class="mb-3"><label class="form-label">Prioridade *</label><input type="number" x-model="categoryForm.priority" class="form-control" min="1" max="10" required></div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" @click="saveCategory()" class="btn btn-primary">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="clientModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" x-text="clientForm.id ? 'Editar Cliente' : 'Novo Cliente'"></h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form @submit.prevent="saveClient()">
+                            <div class="mb-3"><label class="form-label">Nome *</label><input type="text" x-model="clientForm.name" class="form-control" required></div>
+                            <div class="mb-3"><label class="form-label">Descrição</label><textarea x-model="clientForm.description" class="form-control" rows="3"></textarea></div>
+                            <div class="mb-3"><label class="form-label">Prioridade *</label><input type="number" x-model="clientForm.priority" class="form-control" min="1" max="10" required></div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" @click="saveClient()" class="btn btn-primary">Salvar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Modal -->
+        <div class="modal fade" id="dashboardModal" tabindex="-1">
+            <div class="modal-dialog modal-fullscreen">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-bar-chart-fill"></i> Dashboard de Tarefas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Contadores -->
+                        <div class="row mb-4">
+                            <div class="col-md-2">
+                                <div class="card text-center bg-primary text-white">
+                                    <div class="card-body py-3">
+                                        <h3 class="mb-0" x-text="dashboardData?.totalTasks || 0"></h3>
+                                        <small>Total de Tarefas</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card text-center" style="background-color: #0d6efd; color: white;">
+                                    <div class="card-body py-3">
+                                        <h3 class="mb-0" x-text="dashboardData?.statusCounts?.Nova || 0"></h3>
+                                        <small>🔵 Novas</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card text-center" style="background-color: #0dcaf0; color: white;">
+                                    <div class="card-body py-3">
+                                        <h3 class="mb-0" x-text="dashboardData?.statusCounts?.['Em Andamento'] || 0"></h3>
+                                        <small>🟡 Em Andamento</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card text-center bg-success text-white">
+                                    <div class="card-body py-3">
+                                        <h3 class="mb-0" x-text="dashboardData?.statusCounts?.Concluida || 0"></h3>
+                                        <small>🟢 Concluídas</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card text-center bg-info text-white">
+                                    <div class="card-body py-3">
+                                        <h3 class="mb-0" x-text="dashboardData?.onTime || 0"></h3>
+                                        <small>✅ No Prazo</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="card text-center bg-danger text-white">
+                                    <div class="card-body py-3">
+                                        <h3 class="mb-0" x-text="dashboardData?.overdue || 0"></h3>
+                                        <small>⚠️ Atrasadas</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabela -->
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Categoria</th>
+                                        <th>Status</th>
+                                        <th>Tarefa</th>
+                                        <th>Previsão de Entrega</th>
+                                        <th>SLA / Progresso</th>
+                                        <th>Clientes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="task in dashboardTasks" :key="task.id">
+                                        <tr :class="task.slaStatus === 'overdue' ? 'table-danger' : (task.slaStatus === 'warning' ? 'table-warning' : '')">
+                                            <td>
+                                                <span class="badge" :style="'background-color: ' + getCategoryColor(task.categoryId)" x-text="getCategoryName(task.categoryId)"></span>
+                                            </td>
+                                            <td>
+                                                <span class="badge" :class="getStatusBadgeClass(task.status)">
+                                                    <span class="status-indicator" :class="getStatusIndicatorClass(task.status)"></span>
+                                                    <span x-text="task.status"></span>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <strong x-text="task.name"></strong>
+                                                <br>
+                                                <small class="text-muted" x-text="task.description"></small>
+                                            </td>
+                                            <td x-text="task.deliveryDate ? formatDate(task.deliveryDate) : '-'"></td>
+                                            <td>
+                                                <!-- SLA para tarefas Em Andamento -->
+                                                <div x-show="task.status === 'Em Andamento' && task.deliveryDate">
+                                                    <div class="progress" style="height: 25px;">
+                                                        <div class="progress-bar" 
+                                                             :class="task.slaPercentage >= 100 ? 'bg-danger' : (task.slaPercentage >= 80 ? 'bg-warning' : 'bg-success')"
+                                                             :style="'width: ' + Math.min(task.slaPercentage, 100) + '%'"
+                                                             role="progressbar">
+                                                            <span x-text="task.slaText"></span>
+                                                        </div>
+                                                    </div>
+                                                    <small class="text-muted" x-text="task.slaDescription"></small>
+                                                </div>
+                                                <!-- Status para tarefas não iniciadas com data -->
+                                                <div x-show="task.status === 'Nova' && task.deliveryDate">
+                                                    <span class="badge bg-secondary">📅 Agendada</span>
+                                                </div>
+                                                <!-- Status para tarefas concluídas -->
+                                                <div x-show="task.status === 'Concluida'">
+                                                    <span class="badge bg-success">✅ Finalizada</span>
+                                                </div>
+                                                <!-- Status para tarefas pausadas com data -->
+                                                <div x-show="task.status === 'Pausada' && task.deliveryDate">
+                                                    <span class="badge bg-warning">⏸️ Em Espera</span>
+                                                </div>
+                                                <!-- Status para tarefas canceladas -->
+                                                <div x-show="task.status === 'Cancelada'">
+                                                    <span class="badge bg-danger">❌ Cancelada</span>
+                                                </div>
+                                                <!-- Sem data definida -->
+                                                <div x-show="!task.deliveryDate && task.status !== 'Concluida' && task.status !== 'Cancelada'">
+                                                    <span class="text-muted">Sem previsão</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <template x-for="clientId in task.clients" :key="clientId">
+                                                    <span class="badge bg-secondary me-1" x-text="getClientName(clientId)"></span>
+                                                </template>
+                                                <span x-show="!task.clients || task.clients.length === 0" class="text-muted">-</span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div x-show="!dashboardTasks || dashboardTasks.length === 0" class="text-center py-5">
+                            <i class="bi bi-inbox display-1 text-muted"></i>
+                            <p class="text-muted mt-3">Nenhuma tarefa disponível</p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        <button type="button" @click="printDashboard()" class="btn btn-outline-primary">
+                            <i class="bi bi-printer"></i> Imprimir
+                        </button>
+                        <button type="button" @click="copyDashboard()" class="btn btn-primary">
+                            <i class="bi bi-clipboard"></i> Copiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Report Modal -->
+        <div class="modal fade" id="statusReportModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-file-text"></i> Status Report</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="bi bi-info-circle"></i> Relatório gerado com base nas tarefas filtradas
+                        </div>
+                        <pre id="reportContent" class="report-content" x-text="statusReport"></pre>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        <button type="button" @click="printReport()" class="btn btn-outline-primary">
+                            <i class="bi bi-printer"></i> Imprimir
+                        </button>
+                        <button type="button" @click="copyReport()" class="btn btn-primary">
+                            <i class="bi bi-clipboard"></i> Copiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Container de Notificações -->
+        <div id="notificationContainer" class="notification-container"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    <script src="assets/js/logger.js"></script>
+    <script src="assets/js/storage.js"></script>
+    <script src="assets/js/models/Category.js"></script>
+    <script src="assets/js/models/Task.js"></script>
+    <script src="assets/js/models/Subtask.js"></script>
+    <script src="assets/js/models/Client.js"></script>
+    <script src="assets/js/services/CategoryService.js"></script>
+    <script src="assets/js/services/TaskService.js"></script>
+    <script src="assets/js/services/ClientService.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
