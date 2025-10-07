@@ -665,6 +665,12 @@
                             <table class="table table-hover table-striped">
                                 <thead class="table-dark">
                                     <tr>
+                                        <th style="width: 40px;">
+                                            <input type="checkbox" 
+                                                   class="form-check-input"
+                                                   :checked="selectedDashboardTasks.length === dashboardTasks.length && dashboardTasks.length > 0"
+                                                   @change="toggleAllDashboardTasks()">
+                                        </th>
                                         <th>Categoria</th>
                                         <th>Status</th>
                                         <th>Tarefa</th>
@@ -677,6 +683,12 @@
                                     <template x-for="task in dashboardTasks" :key="task.id">
                                         <tr :class="task.slaStatus === 'overdue' ? 'table-danger' : (task.slaStatus === 'warning' ? 'table-warning' : '')">
                                             <td>
+                                                <input type="checkbox" 
+                                                       class="form-check-input"
+                                                       :checked="isDashboardTaskSelected(task.id)"
+                                                       @change="toggleDashboardTask(task.id)">
+                                            </td>
+                                            <td>
                                                 <span class="badge" :style="'background-color: ' + getCategoryColor(task.categoryId)" x-text="getCategoryName(task.categoryId)"></span>
                                             </td>
                                             <td>
@@ -688,7 +700,7 @@
                                             <td>
                                                 <strong x-text="task.name"></strong>
                                                 <br>
-                                                <small class="text-muted" x-text="task.description"></small>
+                                                <small class="text-muted task-description" x-text="task.description"></small>
                                             </td>
                                             <td x-text="task.deliveryDate ? formatDate(task.deliveryDate) : '-'"></td>
                                             <td>
@@ -743,12 +755,25 @@
                         </div>
                     </div>
                     <div class="modal-footer">
+                        <div class="me-auto">
+                            <small class="text-muted">
+                                <span x-show="selectedDashboardTasks.length > 0">
+                                    <i class="bi bi-check-circle"></i>
+                                    <span x-text="selectedDashboardTasks.length"></span> selecionada(s)
+                                </span>
+                                <span x-show="selectedDashboardTasks.length === 0">
+                                    Selecione tarefas para exportar
+                                </span>
+                            </small>
+                        </div>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                        <button type="button" @click="printDashboard()" class="btn btn-outline-primary">
-                            <i class="bi bi-printer"></i> Imprimir
+                        <button type="button" @click="printDashboard()" class="btn btn-outline-primary"
+                                :disabled="selectedDashboardTasks.length === 0">
+                            <i class="bi bi-printer"></i> Imprimir Selecionadas
                         </button>
-                        <button type="button" @click="copyDashboard()" class="btn btn-primary">
-                            <i class="bi bi-clipboard"></i> Copiar
+                        <button type="button" @click="copyDashboard()" class="btn btn-primary"
+                                :disabled="selectedDashboardTasks.length === 0">
+                            <i class="bi bi-clipboard"></i> Copiar Selecionadas
                         </button>
                     </div>
                 </div>
@@ -765,16 +790,63 @@
                     </div>
                     <div class="modal-body">
                         <div class="alert alert-info mb-3">
-                            <i class="bi bi-info-circle"></i> Relatório gerado com base nas tarefas filtradas
+                            <i class="bi bi-info-circle"></i> Selecione as tarefas que deseja incluir no relatório
                         </div>
-                        <pre id="reportContent" class="report-content" x-text="statusReport"></pre>
+                        
+                        <!-- Seleção de Tarefas -->
+                        <div class="card mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>Selecionar Tarefas</span>
+                                <button class="btn btn-sm btn-outline-primary" @click="toggleAllReportTasks()">
+                                    <span x-show="selectedReportTasks.length === filteredTasks.length">
+                                        <i class="bi bi-square"></i> Desmarcar Todas
+                                    </span>
+                                    <span x-show="selectedReportTasks.length !== filteredTasks.length">
+                                        <i class="bi bi-check-square"></i> Selecionar Todas
+                                    </span>
+                                </button>
+                            </div>
+                            <div class="card-body report-task-selection">
+                                <template x-for="task in filteredTasks" :key="task.id">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               :id="'report-task-' + task.id"
+                                               :checked="isReportTaskSelected(task.id)"
+                                               @change="toggleReportTask(task.id)">
+                                        <label class="form-check-label" :for="'report-task-' + task.id">
+                                            <span class="badge" :class="getStatusBadgeClass(task.status)" x-text="task.status"></span>
+                                            <strong x-text="task.name"></strong>
+                                            <small class="text-muted" x-text="' - ' + getCategoryName(task.categoryId)"></small>
+                                        </label>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- Preview do Relatório -->
+                        <div x-show="selectedReportTasks.length > 0">
+                            <h6 class="mb-2">Preview do Relatório:</h6>
+                            <pre id="reportContent" class="report-content" x-text="statusReport"></pre>
+                        </div>
+                        <div x-show="selectedReportTasks.length === 0" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox display-4"></i>
+                            <p class="mt-2">Selecione tarefas para gerar o relatório</p>
+                        </div>
                     </div>
                     <div class="modal-footer">
+                        <div class="me-auto">
+                            <small class="text-muted">
+                                <i class="bi bi-check-circle"></i>
+                                <span x-text="selectedReportTasks.length"></span> de <span x-text="filteredTasks.length"></span> selecionada(s)
+                            </small>
+                        </div>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                        <button type="button" @click="printReport()" class="btn btn-outline-primary">
+                        <button type="button" @click="printReport()" class="btn btn-outline-primary"
+                                :disabled="selectedReportTasks.length === 0">
                             <i class="bi bi-printer"></i> Imprimir
                         </button>
-                        <button type="button" @click="copyReport()" class="btn btn-primary">
+                        <button type="button" @click="copyReport()" class="btn btn-primary"
+                                :disabled="selectedReportTasks.length === 0">
                             <i class="bi bi-clipboard"></i> Copiar
                         </button>
                     </div>

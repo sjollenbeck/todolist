@@ -122,6 +122,16 @@ body {
     padding: 0.5rem 1rem;
 }
 
+.task-card .card-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 4.5em;
+    line-height: 1.5em;
+}
+
 /* Status Circle Indicators */
 .status-indicator {
     display: inline-block;
@@ -235,10 +245,41 @@ select.form-select option {
     font-family: 'Courier New', monospace;
     font-size: 0.9rem;
     line-height: 1.6;
-    max-height: 500px;
+    max-height: 400px;
     overflow-y: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+.report-task-selection {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.report-task-selection .form-check {
+    padding: 8px;
+    border-bottom: 1px solid #e9ecef;
+    transition: background-color 0.15s ease;
+}
+
+[data-bs-theme="dark"] .report-task-selection .form-check {
+    border-bottom-color: #495057;
+}
+
+.report-task-selection .form-check:hover {
+    background-color: rgba(13, 110, 253, 0.05);
+}
+
+.report-task-selection .form-check:last-child {
+    border-bottom: none;
+}
+
+.report-task-selection .form-check-label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 [data-bs-theme="dark"] .report-content {
@@ -286,6 +327,16 @@ select.form-select option {
     vertical-align: middle;
 }
 
+#dashboardModal .table .task-description {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 4.5em;
+    line-height: 1.5em;
+}
+
 #dashboardModal .progress {
     background-color: #e9ecef;
     border-radius: 0.25rem;
@@ -315,6 +366,14 @@ select.form-select option {
     z-index: 10;
 }
 
+#dashboardModal .form-check-input {
+    cursor: pointer;
+}
+
+#dashboardModal tbody tr:hover {
+    cursor: pointer;
+}
+
 .table-hover tbody tr {
     transition: background-color 0.15s ease;
 }
@@ -342,6 +401,14 @@ select.form-select option {
     #dashboardModal .table td,
     #dashboardModal .table th {
         padding: 6px !important;
+    }
+    
+    /* Remover limite de linhas na impressão */
+    #dashboardModal .table .task-description {
+        display: block !important;
+        -webkit-line-clamp: unset !important;
+        max-height: none !important;
+        overflow: visible !important;
     }
 }
 

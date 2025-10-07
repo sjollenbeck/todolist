@@ -108,6 +108,8 @@ function todoApp() {
             onTime: 0,
             overdue: 0
         },
+        selectedDashboardTasks: [],
+        selectedReportTasks: [],
         
         // InicializaÃ§Ã£o
         async init() {
@@ -777,9 +779,32 @@ function todoApp() {
         
         // ========== STATUS REPORT ==========
         openStatusReport() {
-            this.statusReport = this.generateStatusReport();
+            this.selectedReportTasks = []; // Limpar seleção
             const modal = new bootstrap.Modal(document.getElementById('statusReportModal'));
             modal.show();
+        },
+        
+        toggleAllReportTasks() {
+            if (this.selectedReportTasks.length === this.filteredTasks.length) {
+                this.selectedReportTasks = [];
+            } else {
+                this.selectedReportTasks = this.filteredTasks.map(t => t.id);
+            }
+            this.statusReport = this.generateStatusReport();
+        },
+        
+        toggleReportTask(taskId) {
+            const index = this.selectedReportTasks.indexOf(taskId);
+            if (index > -1) {
+                this.selectedReportTasks.splice(index, 1);
+            } else {
+                this.selectedReportTasks.push(taskId);
+            }
+            this.statusReport = this.generateStatusReport();
+        },
+        
+        isReportTaskSelected(taskId) {
+            return this.selectedReportTasks.includes(taskId);
         },
         
         generateStatusReport() {
@@ -791,6 +816,11 @@ function todoApp() {
                 year: 'numeric'
             });
             
+            // Usar tarefas selecionadas ou todas se nenhuma selecionada
+            const tasksToReport = this.selectedReportTasks.length > 0
+                ? this.filteredTasks.filter(t => this.selectedReportTasks.includes(t.id))
+                : this.filteredTasks;
+            
             // Agrupar tarefas por status
             const tasksByStatus = {
                 'Nova': [],
@@ -800,8 +830,8 @@ function todoApp() {
                 'Concluida': []
             };
             
-            // Usar as tarefas filtradas
-            this.filteredTasks.forEach(task => {
+            // Usar as tarefas selecionadas/filtradas
+            tasksToReport.forEach(task => {
                 if (tasksByStatus[task.status]) {
                     tasksByStatus[task.status].push(task);
                 }
@@ -829,8 +859,12 @@ function todoApp() {
             report += `${'='.repeat(50)}\n\n`;
             
             // Total geral
-            const totalTasks = this.filteredTasks.length;
-            report += `📊 TOTAL DE TAREFAS: ${totalTasks}\n\n`;
+            const totalTasks = tasksToReport.length;
+            if (this.selectedReportTasks.length > 0) {
+                report += `📊 TAREFAS SELECIONADAS: ${totalTasks}\n\n`;
+            } else {
+                report += `📊 TOTAL DE TAREFAS: ${totalTasks}\n\n`;
+            }
             
             // Iterar sobre cada status
             Object.keys(tasksByStatus).forEach(status => {
@@ -959,8 +993,30 @@ function todoApp() {
         // ========== DASHBOARD ==========
         openDashboard() {
             this.generateDashboardData();
+            this.selectedDashboardTasks = []; // Limpar seleção ao abrir
             const modal = new bootstrap.Modal(document.getElementById('dashboardModal'));
             modal.show();
+        },
+        
+        toggleAllDashboardTasks() {
+            if (this.selectedDashboardTasks.length === this.dashboardTasks.length) {
+                this.selectedDashboardTasks = [];
+            } else {
+                this.selectedDashboardTasks = this.dashboardTasks.map(t => t.id);
+            }
+        },
+        
+        toggleDashboardTask(taskId) {
+            const index = this.selectedDashboardTasks.indexOf(taskId);
+            if (index > -1) {
+                this.selectedDashboardTasks.splice(index, 1);
+            } else {
+                this.selectedDashboardTasks.push(taskId);
+            }
+        },
+        
+        isDashboardTaskSelected(taskId) {
+            return this.selectedDashboardTasks.includes(taskId);
         },
         
         generateDashboardData() {
@@ -1512,11 +1568,16 @@ function todoApp() {
         },
         
         async copyDashboard() {
+            if (this.selectedDashboardTasks.length === 0) {
+                alert('⚠️ Selecione pelo menos uma tarefa para copiar.');
+                return;
+            }
+            
             try {
                 const dashboardText = this.generateDashboardText();
                 await navigator.clipboard.writeText(dashboardText);
-                alert('✅ Dashboard copiado para a área de transferência!');
-                logger.info('Dashboard copiado com sucesso');
+                alert(`✅ ${this.selectedDashboardTasks.length} tarefa(s) copiada(s) para a área de transferência!`);
+                logger.info('Dashboard copiado com sucesso', { tarefas: this.selectedDashboardTasks.length });
             } catch (error) {
                 // Fallback para navegadores mais antigos
                 const textArea = document.createElement('textarea');
@@ -1544,26 +1605,48 @@ function todoApp() {
                 year: 'numeric'
             });
             
+            // Filtrar apenas tarefas selecionadas
+            const selectedTasks = this.dashboardTasks.filter(task => 
+                this.selectedDashboardTasks.includes(task.id)
+            );
+            
             let text = `📊 DASHBOARD DE TAREFAS - ${today}\n`;
             text += `${'='.repeat(80)}\n\n`;
             
-            // Contadores
-            text += `📈 RESUMO GERAL\n`;
+            // Contadores (recalcular para tarefas selecionadas)
+            const statusCounts = {};
+            let onTime = 0;
+            let overdue = 0;
+            const now = new Date();
+            
+            selectedTasks.forEach(task => {
+                statusCounts[task.status] = (statusCounts[task.status] || 0) + 1;
+                if (task.deliveryDate && task.status !== 'Concluida' && task.status !== 'Cancelada') {
+                    const deliveryDate = new Date(task.deliveryDate);
+                    if (now <= deliveryDate) {
+                        onTime++;
+                    } else {
+                        overdue++;
+                    }
+                }
+            });
+            
+            text += `📈 RESUMO (Tarefas Selecionadas)\n`;
             text += `${'-'.repeat(80)}\n`;
-            text += `📊 Total de Tarefas: ${this.dashboardData.totalTasks}\n`;
-            text += `🔵 Novas: ${this.dashboardData.statusCounts.Nova || 0}\n`;
-            text += `🟡 Em Andamento: ${this.dashboardData.statusCounts['Em Andamento'] || 0}\n`;
-            text += `⏸️  Pausadas: ${this.dashboardData.statusCounts.Pausada || 0}\n`;
-            text += `🔴 Canceladas: ${this.dashboardData.statusCounts.Cancelada || 0}\n`;
-            text += `🟢 Concluídas: ${this.dashboardData.statusCounts.Concluida || 0}\n`;
-            text += `✅ No Prazo: ${this.dashboardData.onTime}\n`;
-            text += `⚠️  Atrasadas: ${this.dashboardData.overdue}\n\n`;
+            text += `📊 Total Selecionado: ${selectedTasks.length}\n`;
+            text += `🔵 Novas: ${statusCounts.Nova || 0}\n`;
+            text += `🟡 Em Andamento: ${statusCounts['Em Andamento'] || 0}\n`;
+            text += `⏸️  Pausadas: ${statusCounts.Pausada || 0}\n`;
+            text += `🔴 Canceladas: ${statusCounts.Cancelada || 0}\n`;
+            text += `🟢 Concluídas: ${statusCounts.Concluida || 0}\n`;
+            text += `✅ No Prazo: ${onTime}\n`;
+            text += `⚠️  Atrasadas: ${overdue}\n\n`;
             
             // Tabela
-            text += `📋 DETALHAMENTO DAS TAREFAS\n`;
+            text += `📋 DETALHAMENTO DAS TAREFAS SELECIONADAS\n`;
             text += `${'-'.repeat(80)}\n\n`;
             
-            this.dashboardTasks.forEach((task, index) => {
+            selectedTasks.forEach((task, index) => {
                 text += `${index + 1}. ${task.name}\n`;
                 text += `   📁 Categoria: ${this.getCategoryName(task.categoryId)}\n`;
                 text += `   ⭐ Status: ${task.status}\n`;
@@ -1606,7 +1689,17 @@ function todoApp() {
         },
         
         printDashboard() {
+            if (this.selectedDashboardTasks.length === 0) {
+                alert('⚠️ Selecione pelo menos uma tarefa para imprimir.');
+                return;
+            }
+            
             const printWindow = window.open('', '_blank');
+            
+            // Filtrar apenas tarefas selecionadas
+            const selectedTasks = this.dashboardTasks.filter(task => 
+                this.selectedDashboardTasks.includes(task.id)
+            );
             
             // Gerar HTML da tabela
             let tableHTML = '<table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">';
@@ -1619,7 +1712,7 @@ function todoApp() {
             tableHTML += '<th style="padding: 10px; border: 1px solid #ddd;">Clientes</th>';
             tableHTML += '</tr></thead><tbody>';
             
-            this.dashboardTasks.forEach(task => {
+            selectedTasks.forEach(task => {
                 const rowColor = task.slaStatus === 'overdue' ? 'background-color: #f8d7da;' : 
                                 task.slaStatus === 'warning' ? 'background-color: #fff3cd;' : '';
                 tableHTML += `<tr style="${rowColor}">`;
@@ -1706,28 +1799,8 @@ function todoApp() {
                     <h2>📈 Resumo Geral</h2>
                     <div class="summary">
                         <div class="summary-card">
-                            <h3>${this.dashboardData.totalTasks}</h3>
-                            <p>Total de Tarefas</p>
-                        </div>
-                        <div class="summary-card">
-                            <h3>${this.dashboardData.statusCounts.Nova || 0}</h3>
-                            <p>🔵 Novas</p>
-                        </div>
-                        <div class="summary-card">
-                            <h3>${this.dashboardData.statusCounts['Em Andamento'] || 0}</h3>
-                            <p>🟡 Em Andamento</p>
-                        </div>
-                        <div class="summary-card">
-                            <h3>${this.dashboardData.statusCounts.Concluida || 0}</h3>
-                            <p>🟢 Concluídas</p>
-                        </div>
-                        <div class="summary-card">
-                            <h3>${this.dashboardData.onTime}</h3>
-                            <p>✅ No Prazo</p>
-                        </div>
-                        <div class="summary-card">
-                            <h3>${this.dashboardData.overdue}</h3>
-                            <p>⚠️ Atrasadas</p>
+                            <h3>${selectedTasks.length}</h3>
+                            <p>Tarefas Selecionadas</p>
                         </div>
                     </div>
                     
